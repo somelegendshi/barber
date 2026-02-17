@@ -1,0 +1,27 @@
+# Environment variables (Secrets)
+.env
+
+# Python cache and byte-code
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Migration and debug scripts (locally created during dev)
+migrate_add_username.py
+migrate_barber_auth.py
+update_services_bilingual.py
+debug_db.py
