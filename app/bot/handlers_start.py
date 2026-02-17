@@ -125,7 +125,7 @@ async def handle_settings(message: types.Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "uz")
     text = "⚙️ Sozlamalar bo'limi" if lang == "uz" else "⚙️ Раздел настроек"
-    # FIXED: Using the correct imported name
+    # FIXED: Correct variable name
     await message.answer(text, reply_markup=admin_settings_keyboard(lang=lang))
 
 @router.message(F.text == "🌐 Tilni o'zgartirish")

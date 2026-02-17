@@ -67,7 +67,6 @@ def admin_schedule_keyboard(work_hours: List[Dict], lang: str = "uz") -> InlineK
         day_name = days_uz[wh['dow']]
         time_str = f"{wh['start_time'].strftime('%H:%M')}-{wh['end_time'].strftime('%H:%M')}"
         
-        # If closed (00:00-00:00)
         if wh['start_time'] == wh['end_time']:
             time_str = "Yopiq / Закрыто"
 
@@ -88,7 +87,6 @@ def admin_edit_day_keyboard(dow: int) -> InlineKeyboardMarkup:
 
 # --- OTHER KEYBOARDS ---
 
-# Language Selection Keyboard
 def lang_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -97,7 +95,6 @@ def lang_keyboard() -> InlineKeyboardMarkup:
         ]
     ])
 
-# Phone Request Keyboard (Reply Keyboard)
 def phone_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
     text = "📞 Telefon raqamni yuborish" if lang == "uz" else "📞 Отправить номер телефона"
     return ReplyKeyboardMarkup(
@@ -106,52 +103,34 @@ def phone_keyboard(lang: str = "uz") -> ReplyKeyboardMarkup:
         one_time_keyboard=True
     )
 
-# Services Keyboard
 def services_keyboard(services: List[Dict], lang: str = "uz") -> InlineKeyboardMarkup:
-    """Create buttons for each service."""
     kb = []
     for service in services:
         kb.append([InlineKeyboardButton(
             text=f"{service['name']}",
             callback_data=f"service_{service['id']}"
         )])
-        
-    btn_text = "🚫 Bekor qilish" if lang == "uz" else "🚫 Отмена"
-    kb.append([InlineKeyboardButton(text=btn_text, callback_data="cancel_flow")])
+    kb.append([InlineKeyboardButton(text="🚫 Bekor qilish" if lang == "uz" else "🚫 Отмена", callback_data="cancel_flow")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
-# Barbers Keyboard
 def barbers_keyboard(barbers: List[Dict], lang: str = "uz") -> InlineKeyboardMarkup:
-    """Create buttons for each barber."""
     kb = []
     for barber in barbers:
-        kb.append([InlineKeyboardButton(
-            text=f"👤 {barber['display_name']}",
-            callback_data=f"barber_{barber['id']}"
-        )])
-        
-    back_text = "⬅️ Xizmatlarga qaytish" if lang == "uz" else "⬅️ К услугам"
-    kb.append([InlineKeyboardButton(text=back_text, callback_data="back_to_services")])
+        kb.append([InlineKeyboardButton(text=f"👤 {barber['display_name']}", callback_data=f"barber_{barber['id']}")])
+    kb.append([InlineKeyboardButton(text="⬅️ Xizmatlarga qaytish" if lang == "uz" else "⬅️ К услугам", callback_data="back_to_services")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
-# Date Selection (Next 7 days)
 def dates_keyboard(dates: List[Dict], lang: str = "uz") -> InlineKeyboardMarkup:
-    """Create buttons for next 7 days."""
     kb = []
     for i in range(0, len(dates), 2):
-        row = []
-        row.append(InlineKeyboardButton(text=dates[i]['text'], callback_data=dates[i]['callback']))
+        row = [InlineKeyboardButton(text=dates[i]['text'], callback_data=dates[i]['callback'])]
         if i+1 < len(dates):
             row.append(InlineKeyboardButton(text=dates[i+1]['text'], callback_data=dates[i+1]['callback']))
         kb.append(row)
-        
-    back_text = "⬅️ Ustani o'zgartirish" if lang == "uz" else "⬅️ Сменить мастера"
-    kb.append([InlineKeyboardButton(text=back_text, callback_data="back_to_barbers")])
+    kb.append([InlineKeyboardButton(text="⬅️ Ustani o'zgartirish" if lang == "uz" else "⬅️ Сменить мастера", callback_data="back_to_barbers")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
-# Slot Selection (Times)
 def slots_keyboard(slots: List[str], lang: str = "uz") -> InlineKeyboardMarkup:
-    """Create buttons for available times."""
     kb = []
     for i in range(0, len(slots), 3):
         row = []
@@ -159,48 +138,29 @@ def slots_keyboard(slots: List[str], lang: str = "uz") -> InlineKeyboardMarkup:
             if i+j < len(slots):
                 row.append(InlineKeyboardButton(text=slots[i+j], callback_data=f"time_{slots[i+j]}"))
         kb.append(row)
-    
-    back_text = "⬅️ Sanani o'zgartirish" if lang == "uz" else "⬅️ Сменить дату"
-    kb.append([InlineKeyboardButton(text=back_text, callback_data="back_to_dates")])
+    kb.append([InlineKeyboardButton(text="⬅️ Sanani o'zgartirish" if lang == "uz" else "⬅️ Сменить дату", callback_data="back_to_dates")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
-# Confirm Booking
 def confirm_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
-    """Yes/No confirmation."""
-    yes_text = "✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить"
-    no_text = "❌ Bekor qilish" if lang == "uz" else "❌ Отмена"
-    
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=yes_text, callback_data="confirm_booking")],
-        [InlineKeyboardButton(text=no_text, callback_data="cancel_booking")]
+        [InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data="confirm_booking")],
+        [InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отмена", callback_data="cancel_booking")]
     ])
 
-# Phone Confirmation (Keep or Change)
 def phone_confirm_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
-    use_text = "✅ Shu raqamni ishlatish" if lang == "uz" else "✅ Использовать этот"
-    change_text = "🔄 Boshqa raqam kiritish" if lang == "uz" else "🔄 Ввести другой"
-    
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=use_text, callback_data="use_existing_phone")],
-        [InlineKeyboardButton(text=change_text, callback_data="change_phone")]
+        [InlineKeyboardButton(text="✅ Shu raqamni ishlatish" if lang == "uz" else "✅ Использовать этот", callback_data="use_existing_phone")],
+        [InlineKeyboardButton(text="🔄 Boshqa raqam kiritish" if lang == "uz" else "🔄 Ввести другой", callback_data="change_phone")]
     ])
 
-# My Booking Actions (Cancel / Reschedule)
 def my_booking_keyboard(booking_id: int, lang: str = "uz") -> InlineKeyboardMarkup:
-    cancel_text = "❌ Bekor qilish" if lang == "uz" else "❌ Отменить"
-    resched_text = "🔄 Vaqtni o'zgartirish" if lang == "uz" else "🔄 Перенести"
-    
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=resched_text, callback_data=f"reschedule_{booking_id}")],
-        [InlineKeyboardButton(text=cancel_text, callback_data=f"cancel_me_{booking_id}")]
+        [InlineKeyboardButton(text="🔄 Vaqtni o'zgartirish" if lang == "uz" else "🔄 Перенести", callback_data=f"reschedule_{booking_id}")],
+        [InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отменить", callback_data=f"cancel_me_{booking_id}")]
     ])
 
-# Admin Quick Actions
 def admin_quick_block_keyboard(lang: str = "uz") -> InlineKeyboardMarkup:
-    lunch_text = "🍱 Tushlik (13:00-14:00)" if lang == "uz" else "🍱 Обед (13:00-14:00)"
-    hour_text = "⛔ 1 soatga yopish" if lang == "uz" else "⛔ Закрыть на 1 час"
-    
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=lunch_text, callback_data="block_lunch")],
-        [InlineKeyboardButton(text=hour_text, callback_data="block_1h")]
+        [InlineKeyboardButton(text="🍱 Tushlik (13:00-14:00)", callback_data="block_lunch")],
+        [InlineKeyboardButton(text="⛔ 1 soatga yopish", callback_data="block_1h")]
     ])
