@@ -2,7 +2,7 @@ from aiogram import Router, types, F
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from app.db.repository import ensure_customer, list_services, get_shop
-from app.bot.keyboards import services_keyboard, lang_keyboard, main_menu_keyboard, settings_keyboard, admin_menu_keyboard
+from app.bot.keyboards import services_keyboard, lang_keyboard, main_menu_keyboard, admin_menu_keyboard, admin_settings_keyboard
 from app.bot.messages import WELCOME_MSG, get_msg
 from app.bot.handlers_owner import is_owner
 import os
@@ -125,7 +125,8 @@ async def handle_settings(message: types.Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "uz")
     text = "⚙️ Sozlamalar bo'limi" if lang == "uz" else "⚙️ Раздел настроек"
-    await message.answer(text, reply_markup=settings_keyboard(lang=lang))
+    # FIXED: Using the correct imported name
+    await message.answer(text, reply_markup=admin_settings_keyboard(lang=lang))
 
 @router.message(F.text == "🌐 Tilni o'zgartirish")
 @router.message(F.text == "🌐 Сменить язык")
