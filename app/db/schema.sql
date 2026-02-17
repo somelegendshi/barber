@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS barbers (
   id BIGSERIAL PRIMARY KEY,
   shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
   display_name TEXT NOT NULL,
+  telegram_id BIGINT, -- Added for SaaS Auth
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -24,7 +25,6 @@ CREATE TABLE IF NOT EXISTS services (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Weekly working windows per barber (0=Sun .. 6=Sat)
 CREATE TABLE IF NOT EXISTS work_hours (
   id BIGSERIAL PRIMARY KEY,
   barber_id BIGINT NOT NULL REFERENCES barbers(id) ON DELETE CASCADE,
@@ -33,10 +33,9 @@ CREATE TABLE IF NOT EXISTS work_hours (
   end_time TIME NOT NULL,
   slot_step_min INT NOT NULL DEFAULT 30 CHECK (slot_step_min > 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CHECK (end_time > start_time)
+  CHECK (end_at >= start_time)
 );
 
--- Exceptions: breaks, days off, etc.
 CREATE TABLE IF NOT EXISTS time_off (
   id BIGSERIAL PRIMARY KEY,
   barber_id BIGINT NOT NULL REFERENCES barbers(id) ON DELETE CASCADE,
@@ -51,11 +50,11 @@ CREATE TABLE IF NOT EXISTS customers (
   id BIGSERIAL PRIMARY KEY,
   telegram_user_id BIGINT NOT NULL UNIQUE,
   full_name TEXT,
+  username TEXT, -- Added for SaaS
   phone TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- status: CONFIRMED,CANCELLED,DONE,NO_SHOW
 CREATE TABLE IF NOT EXISTS bookings (
   id BIGSERIAL PRIMARY KEY,
   shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
@@ -74,7 +73,7 @@ CREATE INDEX IF NOT EXISTS bookings_confirmed_lookup
   ON bookings (barber_id, start_at, end_at)
   WHERE status='CONFIRMED';
 
--- Hard guarantee: no overlapping confirmed bookings for same barber
+-- Hard guarantee: no overlapping confirmed bookings
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='no_overlap_confirmed') THEN
