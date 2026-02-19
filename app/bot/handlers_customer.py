@@ -13,6 +13,10 @@ router = Router()
 async def cmd_my_bookings(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     
+    # Get Language from state
+    data = await state.get_data()
+    lang = data.get("lang", "uz")
+    
     # FIXED: Check bookings for ALL shops the customer might have registered in
     bookings = list_customer_bookings(user_id, None)
     
