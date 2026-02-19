@@ -1,9 +1,21 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from app.bot.keyboards import admin_settings_keyboard, admin_services_edit_keyboard, admin_schedule_keyboard, admin_edit_day_keyboard
+from app.bot.keyboards import (
+    admin_settings_keyboard, 
+    admin_services_edit_keyboard, 
+    admin_schedule_keyboard, 
+    admin_edit_day_keyboard,
+    admin_time_picker_keyboard
+)
 from app.db.repository import list_services, get_work_hours
-from app.db.repo_admin import add_service_db, delete_service_db, update_day_schedule, get_shop_barber_id
+from app.db.repo_admin import (
+    add_service_db, 
+    delete_service_db, 
+    update_day_schedule, 
+    get_shop_barber_id,
+    get_work_hour_by_id
+)
 from app.bot.handlers_owner import get_current_shop_id, is_owner
 from datetime import datetime, timedelta
 import os
@@ -92,11 +104,63 @@ async def admin_schedule_menu(call: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("edit_day_"))
 async def edit_day_start(call: types.CallbackQuery):
-    dow = int(call.data.split("_")[2])
+    data_parts = call.data.split("_")
+    dow = int(data_parts[2])
+    
+    # Check if we are coming from a WH record or just the DOW
+    # If data is edit_day_wh_ID
+    wh_id = None
+    if len(data_parts) > 3 and data_parts[2] == "wh":
+        wh_id = int(data_parts[3])
+        wh = get_work_hour_by_id(wh_id)
+        dow = wh['dow']
+    else:
+        # Try to find existing WH id
+        shop_id = get_current_shop_id(call.from_user.id)
+        barber_id = get_shop_barber_id(shop_id)
+        whs = get_work_hours(barber_id)
+        for w in whs:
+            if w['dow'] == dow:
+                wh_id = w['id']
+                break
+
     days_uz = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
     days_ru = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
     
-    await call.message.edit_text(f"🗓 {days_uz[dow]} / {days_ru[dow]}:", reply_markup=admin_edit_day_keyboard(dow))
+    await call.message.edit_text(
+        f"🗓 {days_uz[dow]} / {days_ru[dow]}:", 
+        reply_markup=admin_edit_day_keyboard(dow, wh_id)
+    )
+
+@router.callback_query(F.data.startswith("custom_hours_"))
+async def custom_hours_start(call: types.CallbackQuery):
+    wh_id = int(call.data.split("_")[2])
+    await call.message.edit_text("Ish boshlanish vaqtini tanlang:\nВыберите время начала работы:", 
+                                 reply_markup=admin_time_picker_keyboard(wh_id, "start"))
+
+@router.callback_query(F.data.startswith("set_time_start_"))
+async def set_time_start(call: types.CallbackQuery):
+    parts = call.data.split("_")
+    wh_id = int(parts[3])
+    time_val = parts[4]
+    
+    await call.message.edit_text(f"Boshlanish: {time_val}\nEndi tugash vaqtini tanlang:\nВыберите время окончания:", 
+                                 reply_markup=admin_time_picker_keyboard(wh_id, f"end_{time_val}"))
+
+@router.callback_query(F.data.startswith("set_time_end_"))
+async def set_time_end(call: types.CallbackQuery):
+    parts = call.data.split("_")
+    # format: set_time_end_STARTTIME_WHID_ENDTIME
+    wh_id = int(parts[4])
+    start_time = parts[3]
+    end_time = parts[5]
+    
+    wh = get_work_hour_by_id(wh_id)
+    update_day_schedule(wh['barber_id'], wh['dow'], start_time, end_time)
+    
+    await call.answer(f"✅ {start_time} - {end_time}")
+    whs = get_work_hours(wh['barber_id'])
+    await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(whs))
 
 @router.callback_query(F.data.startswith("set_day_off_"))
 async def set_day_off(call: types.CallbackQuery):

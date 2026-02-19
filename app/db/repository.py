@@ -44,7 +44,7 @@ def list_barbers(shop_id: int) -> List[Dict]:
 def get_work_hours(barber_id: int) -> List[Dict]:
     with get_db() as cur:
         cur.execute("""
-            SELECT dow, start_time, end_time, slot_step_min 
+            SELECT id, dow, start_time, end_time, slot_step_min 
             FROM work_hours 
             WHERE barber_id = %s
         """, (barber_id,))

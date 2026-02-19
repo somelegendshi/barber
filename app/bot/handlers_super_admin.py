@@ -34,8 +34,8 @@ async def cmd_new_shop(message: types.Message):
         # 1. Create Shop
         shop_id = create_shop_db(shop_name)
         
-        # 2. Auto-create "Main Barber"
-        barber_id = add_barber_db(shop_id, "Bosh Usta")
+        # 2. Auto-create "Main Barber" using the Shop Name as the display name
+        barber_id = add_barber_db(shop_id, shop_name)
         
         # 3. Assign Owner if provided
         if owner_id:
