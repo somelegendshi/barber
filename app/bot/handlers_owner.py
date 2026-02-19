@@ -2,7 +2,8 @@ from aiogram import Router, types, Bot, F
 from aiogram.filters import Command
 from datetime import datetime, timedelta
 import os
-from app.db.repository import list_bookings_detailed, list_all_future_bookings, cancel_booking_db, block_time_range, get_admin_shop_id
+from app.db.repository import list_bookings_detailed, list_all_future_bookings, cancel_booking_db, block_time_range
+from app.db.repo_admin import get_shop_barber_id, get_current_shop_id_fixed
 from app.utils.time import get_today, get_now
 from app.bot.keyboards import main_menu_keyboard, lang_keyboard, admin_quick_block_keyboard
 from app.bot.messages import WELCOME_MSG
@@ -15,20 +16,10 @@ def is_owner(user_id: int) -> bool:
     if str(user_id) in [oid.strip() for oid in owner_ids]:
         return True
     # 2. Check Database
-    return get_admin_shop_id(user_id) is not None
+    return get_current_shop_id_fixed(user_id) != 1 or user_id in [int(oid.strip()) for oid in owner_ids if oid.strip().isdigit()]
 
 def get_current_shop_id(user_id: int) -> int:
-    # 1. Check Database first (Barber's primary shop)
-    db_shop_id = get_admin_shop_id(user_id)
-    if db_shop_id:
-        return db_shop_id
-    
-    # 2. Check Super Admin (ENV) - default to 1
-    owner_ids = os.getenv("OWNER_TELEGRAM_IDS", "").split(",")
-    if str(user_id) in [oid.strip() for oid in owner_ids]:
-        return int(os.getenv("SHOP_ID", "1"))
-        
-    return 1
+    return get_current_shop_id_fixed(user_id)
 
 # --- ADMIN MENU HANDLERS ---
 
@@ -156,7 +147,6 @@ async def show_block_options(message: types.Message):
 @router.callback_query(F.data == "block_lunch")
 async def block_lunch_handler(call: types.CallbackQuery):
     shop_id = get_current_shop_id(call.from_user.id)
-    from app.db.repo_admin import get_shop_barber_id
     barber_id = get_shop_barber_id(shop_id)
     
     if not barber_id:
@@ -174,7 +164,6 @@ async def block_lunch_handler(call: types.CallbackQuery):
 @router.callback_query(F.data == "block_1h")
 async def block_1h_handler(call: types.CallbackQuery):
     shop_id = get_current_shop_id(call.from_user.id)
-    from app.db.repo_admin import get_shop_barber_id
     barber_id = get_shop_barber_id(shop_id)
     
     start_at = get_now()

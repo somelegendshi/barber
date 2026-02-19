@@ -47,3 +47,15 @@ def get_work_hour_by_id(wh_id: int):
     with get_db() as cur:
         cur.execute("SELECT * FROM work_hours WHERE id = %s", (wh_id,))
         return cur.fetchone()
+
+# FIXED: Fallback logic for Shop Owner check
+def get_current_shop_id_fixed(user_id: int) -> int:
+    with get_db() as cur:
+        # Check if this user is a barber/admin of ANY shop
+        cur.execute("SELECT shop_id FROM barbers WHERE telegram_id = %s LIMIT 1", (user_id,))
+        res = cur.fetchone()
+        if res:
+            return res['shop_id']
+        
+        # If not an admin, default to shop 1
+        return 1
