@@ -159,16 +159,15 @@ def cancel_booking_db(booking_id: int, shop_id: int) -> bool:
         return cur.fetchone() is not None
 
 # Cancel booking by Customer (with reason)
-def cancel_booking_by_customer(booking_id: int, shop_id: int, reason: str) -> bool:
+def cancel_booking_by_customer(booking_id: int, reason: str) -> bool:
     with get_db() as cur:
-        # We could store the reason in a separate log table or just mark cancelled
-        # For MVP, we just mark cancelled. If you want to store reason, add a column.
+        # Removed shop_id requirement to allow global cancellation
         cur.execute("""
             UPDATE bookings 
             SET status = 'CANCELLED' 
-            WHERE id = %s AND shop_id = %s AND status = 'CONFIRMED'
+            WHERE id = %s AND status = 'CONFIRMED'
             RETURNING id
-        """, (booking_id, shop_id))
+        """, (booking_id,))
         return cur.fetchone() is not None
 
 # Block time range (TimeOff)

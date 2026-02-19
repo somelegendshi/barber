@@ -48,12 +48,12 @@ async def cmd_my_bookings(message: types.Message, state: FSMContext):
 async def cancel_my_booking(call: types.CallbackQuery, state: FSMContext):
     booking_id = int(call.data.split("_")[2])
     
-    # Get State for Shop ID logic
+    # Get State for language only
     data = await state.get_data()
     lang = data.get("lang", "uz")
-    shop_id = data.get("active_shop_id", int(os.getenv("SHOP_ID", "1")))
     
-    success = cancel_booking_by_customer(booking_id, shop_id, reason="User Cancelled")
+    # FIXED: Global cancellation (no shop_id required)
+    success = cancel_booking_by_customer(booking_id, reason="User Cancelled")
     
     if success:
         msg_text = f"✅ Buyurtma {booking_id} bekor qilindi." if lang == "uz" else f"✅ Заказ {booking_id} отменен."
