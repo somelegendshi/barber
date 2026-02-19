@@ -20,6 +20,10 @@ async def cmd_start(message: types.Message, state: FSMContext):
             shop_id = int(args[1].split("_")[1])
         except ValueError:
             pass
+    else:
+        # Check if user already has a shop_id in state to prevent resetting
+        current_data = await state.get_data()
+        shop_id = current_data.get("active_shop_id", 1)
             
     # Save shop_id to state
     await state.update_data(active_shop_id=shop_id)
