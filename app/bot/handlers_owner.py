@@ -11,6 +11,14 @@ from app.bot.messages import WELCOME_MSG
 
 router = Router()
 
+def is_owner(user_id: int) -> bool:
+    # 1. Check Super Admin (ENV)
+    owner_ids = os.getenv("OWNER_TELEGRAM_IDS", "").split(",")
+    if str(user_id) in [oid.strip() for oid in owner_ids]:
+        return True
+    # 2. Check Database
+    return get_admin_shop_id(user_id) is not None
+
 async def get_user_shop_id(user_id: int, state: FSMContext = None) -> int:
     # 1. Check if user is a shop admin in DB
     db_shop_id = get_admin_shop_id(user_id)
@@ -26,6 +34,17 @@ async def get_user_shop_id(user_id: int, state: FSMContext = None) -> int:
         return 1
     
     return None
+
+def get_current_shop_id(user_id: int) -> int:
+    """Synchronous version for simple cases, defaults to DB check."""
+    db_shop_id = get_admin_shop_id(user_id)
+    if db_shop_id:
+        return db_shop_id
+    
+    owner_ids = os.getenv("OWNER_TELEGRAM_IDS", "").split(",")
+    if str(user_id) in [oid.strip() for oid in owner_ids]:
+        return 1
+    return 1
 
 @router.message(F.text == "📅 Bugun / Сегодня")
 @router.message(Command("today"))
