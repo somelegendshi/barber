@@ -181,20 +181,25 @@ def block_time_range(barber_id: int, start_at: datetime.datetime, end_at: dateti
 
 # List active bookings for a specific customer (Telegram ID)
 # FIXED: Use database time (Asia/Tashkent)
-def list_customer_bookings(telegram_user_id: int, shop_id: int) -> List[Dict]:
+def list_customer_bookings(telegram_user_id: int, shop_id: int = None) -> List[Dict]:
     with get_db() as cur:
-        cur.execute("""
+        query = """
             SELECT b.id, b.start_at, bar.display_name as barber_name, s.name as service_name
             FROM bookings b
             JOIN barbers bar ON b.barber_id = bar.id
             JOIN services s ON b.service_id = s.id
             JOIN customers c ON b.customer_id = c.id
             WHERE c.telegram_user_id = %s
-              AND b.shop_id = %s
               AND b.status = 'CONFIRMED'
               AND b.start_at >= (NOW() AT TIME ZONE 'Asia/Tashkent')
-            ORDER BY b.start_at ASC
-        """, (telegram_user_id, shop_id))
+        """
+        params = [telegram_user_id]
+        if shop_id:
+            query += " AND b.shop_id = %s"
+            params.append(shop_id)
+        
+        query += " ORDER BY b.start_at ASC"
+        cur.execute(query, tuple(params))
         return cur.fetchall()
 
 # Insert booking safely (atomic transaction)

@@ -13,12 +13,8 @@ router = Router()
 async def cmd_my_bookings(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     
-    # Get Language and Shop ID from state
-    data = await state.get_data()
-    lang = data.get("lang", "uz")
-    shop_id = data.get("active_shop_id", int(os.getenv("SHOP_ID", "1")))
-    
-    bookings = list_customer_bookings(user_id, shop_id)
+    # FIXED: Check bookings for ALL shops the customer might have registered in
+    bookings = list_customer_bookings(user_id, None)
     
     if not bookings:
         msg_text = "🤷‍♂️ Sizda faol buyurtmalar yo'q." if lang == "uz" else "🤷‍♂️ У вас нет активных записей."
