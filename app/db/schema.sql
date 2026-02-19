@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   start_at TIMESTAMPTZ NOT NULL,
   end_at TIMESTAMPTZ NOT NULL,
   status TEXT NOT NULL DEFAULT 'CONFIRMED',
+  reminded BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (end_at > start_at)
 );

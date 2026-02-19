@@ -23,6 +23,9 @@ logger = logging.getLogger("REMINDER_WORKER")
 load_dotenv()
 
 async def send_reminders_task():
+    # Load Env inside task to ensure fresh variables if needed
+    load_dotenv()
+    
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         logger.error("TELEGRAM_BOT_TOKEN not found!")
@@ -32,10 +35,10 @@ async def send_reminders_task():
     bot = Bot(token=token)
     
     try:
-        # Check bookings starting in 50-70 minutes (approx 1 hour)
+        # Check bookings starting in 1-2 hours
         now = get_now()
-        start_window = now + timedelta(minutes=50)
-        end_window = now + timedelta(minutes=70)
+        start_window = now + timedelta(hours=1)
+        end_window = now + timedelta(hours=2)
         
         # Format for SQL (Timestamptz comparison)
         # Note: psycopg2 handles datetime objects correctly if they have tzinfo.
@@ -45,7 +48,7 @@ async def send_reminders_task():
         bookings_to_remind = []
         
         with get_db() as cur:
-            # Select CONFIRMED bookings in window
+            # Select CONFIRMED bookings in window that haven't been reminded yet
             cur.execute("""
                 SELECT b.id, b.start_at, b.customer_id, c.telegram_user_id, c.full_name, bar.display_name, s.name as service_name
                 FROM bookings b
@@ -53,6 +56,7 @@ async def send_reminders_task():
                 JOIN barbers bar ON b.barber_id = bar.id
                 JOIN services s ON b.service_id = s.id
                 WHERE b.status = 'CONFIRMED'
+                  AND b.reminded = FALSE
                   AND b.start_at >= %s 
                   AND b.start_at <= %s
             """, (start_window, end_window))
@@ -61,8 +65,7 @@ async def send_reminders_task():
 
         if not bookings_to_remind:
             logger.info("No bookings found in this window.")
-            # Important: return here but let `finally` close the session
-            pass 
+            return
 
         for b in bookings_to_remind:
             try:
@@ -73,7 +76,7 @@ async def send_reminders_task():
                 msg_text = (
                     f"🔔 <b>Eslatma / Напоминание!</b>\n\n"
                     f"Hurmatli {b['full_name']},\n"
-                    f"Sizning navbatingiz yaqinlashmoqda (1 soat qoldi):\n\n"
+                    f"Sizning navbatingiz yaqinlashmoqda:\n\n"
                     f"🕒 Vaqt/Время: <b>{local_time}</b>\n"
                     f"💇‍♂️ Usta/Мастер: {b['display_name']}\n"
                     f"✂️ Xizmat/Услуга: {b['service_name']}\n\n"
@@ -83,6 +86,11 @@ async def send_reminders_task():
                 
                 # Send message
                 await bot.send_message(chat_id=b['telegram_user_id'], text=msg_text, parse_mode="HTML")
+                
+                # Mark as reminded in DB
+                with get_db() as cur:
+                    cur.execute("UPDATE bookings SET reminded = TRUE WHERE id = %s", (b['id'],))
+                
                 logger.info(f"Reminder sent to {b['full_name']} (ID: {b['telegram_user_id']}) for booking {b['id']}")
                 
             except Exception as e:
