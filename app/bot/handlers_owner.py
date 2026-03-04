@@ -45,7 +45,7 @@ def get_current_shop_id(user_id: int) -> int:
 
 # --- SYSTEM HEALTH CHECK ---
 
-@router.message(F.text.contains("Bugun") | F.text.contains("Today") | Command("status"))
+@router.message((F.text.contains("Bugun")) | (F.text.contains("Today")) | Command("status"))
 async def cmd_system_health(message: types.Message, state: FSMContext):
     if not is_owner(message.from_user.id): return
     
