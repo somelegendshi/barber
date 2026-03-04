@@ -102,7 +102,12 @@ async def select_time(call: types.CallbackQuery, state: FSMContext):
     lang = data.get("lang", "uz")
     
     work_hours = get_work_hours(barber_id)
-    bookings = get_bookings(shop_id=shop_id, barber_id=barber_id, start_dt=datetime.combine(selected_date, datetime.min.time()), end_dt=datetime.combine(selected_date, datetime.max.time()))
+    
+    # FIXED: Use timezone-aware datetime for DB query
+    start_dt = TZ_TASHKENT.localize(datetime.combine(selected_date, datetime.min.time()))
+    end_dt = TZ_TASHKENT.localize(datetime.combine(selected_date, datetime.max.time()))
+    
+    bookings = get_bookings(shop_id=shop_id, barber_id=barber_id, start_dt=start_dt, end_dt=end_dt)
     
     naive_bookings = [{'start_at': b['start_at'].astimezone(TZ_TASHKENT).replace(tzinfo=None), 'end_at': b['end_at'].astimezone(TZ_TASHKENT).replace(tzinfo=None)} for b in bookings]
     slots = generate_slots(work_hours, naive_bookings, [], int(data.get('duration', 30)), selected_date)

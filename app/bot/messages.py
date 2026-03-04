@@ -47,8 +47,11 @@ def get_msg(key, lang="uz", **kwargs):
             "ru": "✅ <b>Забронировано!</b>\n\n🆔 Номер заказа: <code>{id}</code>\n📍 Мы ждем вас!"
         },
         "error_taken": {
-            "uz": "🚫 Bu vaqt band. Boshqasini tanlang.",
-            "ru": "🚫 Это время занято. Выберите другое."
+            "uz": "🚫 <b>Kechirasiz!</b>\nBu vaqt oralig'ida allaqachon band qilingan.\nIltimos, boshqa vaqtni tanlang.",
+            "ru": "🚫 <b>Извините!</b>\nЭто время уже занято.\nПожалуйста, выберите другое время."
         }
     }
-    return texts.get(key, {}).get(lang, "Error").format(**kwargs)
+    try:
+        return texts.get(key, {}).get(lang, "Error").format(**kwargs)
+    except KeyError:
+        return texts.get(key, {}).get(lang, "Error")

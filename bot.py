@@ -1,9 +1,11 @@
 import asyncio
 import logging
-from aiogram import Bot, Dispatcher, Router
+from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.storage.redis import RedisStorage
+from redis.asyncio import Redis
 import os
 import sys
 from dotenv import load_dotenv
@@ -42,9 +44,18 @@ async def main():
     if not token:
         raise ValueError("Missing TELEGRAM_BOT_TOKEN in environment")
     
+    # Initialize Storage (Redis for Production, Memory for Dev)
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        storage = RedisStorage(redis=Redis.from_url(redis_url))
+        logger.info("✅ Using Redis Storage")
+    else:
+        storage = MemoryStorage()
+        logger.warning("⚠️ Using Memory Storage (Not recommended for production)")
+
     # Initialize Bot & Dispatcher
     bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    dp = Dispatcher(storage=MemoryStorage())
+    dp = Dispatcher(storage=storage)
     
     # Register Middleware
     dp.message.outer_middleware(GlobalErrorHandler())
