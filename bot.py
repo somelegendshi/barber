@@ -15,7 +15,10 @@ load_dotenv()
 
 # Auto-Initialize Database for Production
 from app.scripts.init_db import initialize_production_db
+from app.scripts.migrate_reminders import migrate_reminders
+
 initialize_production_db()
+migrate_reminders()
 
 # Import handlers
 from app.bot import handlers_start, handlers_booking, handlers_owner, handlers_customer, handlers_super_admin, handlers_admin_settings
