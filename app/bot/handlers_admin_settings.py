@@ -26,7 +26,7 @@ class AdminStates(StatesGroup):
     ADD_SERVICE_NAME = State()
     ADD_SERVICE_DURATION = State()
 
-@router.message(F.text == "⚙️ Do'kon Sozlamalari / Настройки Салона")
+@router.message(F.text.contains("Do'kon Sozlamalari") | F.text.contains("Настройки Салона"))
 async def cmd_admin_settings(message: types.Message):
     if not is_owner(message.from_user.id): return
     await message.answer("🛠 Sozlamalar menyusi / Меню настроек:", reply_markup=admin_settings_keyboard())
@@ -106,16 +106,16 @@ async def admin_schedule_menu(call: types.CallbackQuery):
 @router.callback_query(F.data.startswith("edit_day_"))
 async def edit_day_start(call: types.CallbackQuery):
     data_parts = call.data.split("_")
-    dow = int(data_parts[2])
     
     # Check if we are coming from a WH record or just the DOW
     # If data is edit_day_wh_ID
     wh_id = None
-    if len(data_parts) > 3 and data_parts[2] == "wh":
+    if len(data_parts) > 2 and data_parts[2] == "wh":
         wh_id = int(data_parts[3])
         wh = get_work_hour_by_id(wh_id)
         dow = wh['dow']
     else:
+        dow = int(data_parts[2])
         # Try to find existing WH id
         shop_id = get_current_shop_id(call.from_user.id)
         barber_id = get_shop_barber_id(shop_id)
@@ -136,7 +136,7 @@ async def edit_day_start(call: types.CallbackQuery):
 @router.callback_query(F.data.startswith("custom_hours_"))
 async def custom_hours_start(call: types.CallbackQuery):
     wh_id = int(call.data.split("_")[2])
-    await call.message.edit_text("Ish boshlanish vaqtini tanlang:\nВыберите время начала работы:", 
+    await call.message.edit_text("⏰ Ish boshlanish vaqtini tanlang:\n(Start time):", 
                                  reply_markup=admin_time_picker_keyboard(wh_id, "start"))
 
 @router.callback_query(F.data.startswith("set_time_start_"))
@@ -145,7 +145,7 @@ async def set_time_start(call: types.CallbackQuery):
     wh_id = int(parts[3])
     time_val = parts[4]
     
-    await call.message.edit_text(f"Boshlanish: {time_val}\nEndi tugash vaqtini tanlang:\nВыберите время окончания:", 
+    await call.message.edit_text(f"🟢 Boshlanish: {time_val}\n🔴 Endi tugash vaqtini tanlang (End time):", 
                                  reply_markup=admin_time_picker_keyboard(wh_id, f"end_{time_val}"))
 
 @router.callback_query(F.data.startswith("set_time_end_"))

@@ -111,18 +111,26 @@ async def select_time(call: types.CallbackQuery, state: FSMContext):
     
     naive_bookings = [{'start_at': b['start_at'].astimezone(TZ_TASHKENT).replace(tzinfo=None), 'end_at': b['end_at'].astimezone(TZ_TASHKENT).replace(tzinfo=None)} for b in bookings]
     slots = generate_slots(work_hours, naive_bookings, [], int(data.get('duration', 30)), selected_date)
-    slot_strs = [s.strftime("%H:%M") for s in slots]
     
-    if not slot_strs:
+    if not slots:
         await call.answer("Vaqt qolmadi", show_alert=True)
         return
 
-    await call.message.edit_text(get_msg("select_time", lang=lang), reply_markup=slots_keyboard(slot_strs, lang=lang))
+    await call.message.edit_text(get_msg("select_time", lang=lang), reply_markup=slots_keyboard(slots, lang=lang))
     await state.set_state(BookingFlow.TIME)
 
 @router.callback_query(F.data.startswith("time_"))
 async def check_phone_step(call: types.CallbackQuery, state: FSMContext):
-    await state.update_data(time=call.data.split("_")[1])
+    # data is like time_2026-03-09_15:30
+    parts = call.data.split("_")
+    
+    if len(parts) == 3: # time_DATE_TIME
+        date_str = parts[1]
+        time_str = parts[2]
+        await state.update_data(date=date_str, time=time_str)
+    else:
+        await state.update_data(time=parts[1])
+
     data = await state.get_data()
     lang = data.get("lang", "uz")
     

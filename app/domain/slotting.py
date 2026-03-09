@@ -7,7 +7,7 @@ def generate_slots(
     time_off: List[Dict],
     service_duration_min: int,
     date: datetime.date
-) -> List[datetime.time]:
+) -> List[datetime.datetime]:
     """
     Core slotting engine.
     1. Filter WorkHours for the given date (weekday).
@@ -33,6 +33,14 @@ def generate_slots(
     for wh in day_work_hours:
         current_time = datetime.datetime.combine(date, wh['start_time'])
         end_time = datetime.datetime.combine(date, wh['end_time'])
+        
+        # If end_time is less than or equal to start_time but not exactly equal (which might mean closed)
+        # Actually, if it's 24 hours, it might be 00:00 to 00:00. 
+        # But we set "24 Soat" to 00:00 - 23:59.
+        # So if end_time < start_time, it means it crosses midnight!
+        if wh['end_time'] < wh['start_time']:
+            end_time += datetime.timedelta(days=1)
+            
         slot_step = datetime.timedelta(minutes=wh['slot_step_min'])
         service_duration = datetime.timedelta(minutes=service_duration_min)
         
@@ -58,7 +66,7 @@ def generate_slots(
                         break
             
             if not conflict:
-                available_slots.append(slot_start.time())
+                available_slots.append(slot_start)
                 
             current_time += slot_step
             
