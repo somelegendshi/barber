@@ -100,7 +100,21 @@ async def admin_schedule_menu(call: types.CallbackQuery):
         return
 
     wh = get_work_hours(barber_id)
-    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    
+    # Auto-heal missing work hours
+    if len(wh) < 7:
+        existing_dows = [w['dow'] for w in wh]
+        from app.db.conn import get_db
+        with get_db() as cur:
+            for day in range(7):
+                if day not in existing_dows:
+                    cur.execute(
+                        "INSERT INTO work_hours (barber_id, dow, start_time, end_time, slot_step_min) VALUES (%s, %s, '10:00', '20:00', 30)",
+                        (barber_id, day)
+                    )
+        wh = get_work_hours(barber_id)
+        
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика:"
     await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
 
 @router.callback_query(F.data.startswith("edit_day_"))
@@ -174,7 +188,21 @@ async def set_day_off(call: types.CallbackQuery):
     
     await call.answer("✅ Yopildi / Закрыто")
     wh = get_work_hours(barber_id)
-    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    
+    # Auto-heal missing work hours
+    if len(wh) < 7:
+        existing_dows = [w['dow'] for w in wh]
+        from app.db.conn import get_db
+        with get_db() as cur:
+            for day in range(7):
+                if day not in existing_dows:
+                    cur.execute(
+                        "INSERT INTO work_hours (barber_id, dow, start_time, end_time, slot_step_min) VALUES (%s, %s, '10:00', '20:00', 30)",
+                        (barber_id, day)
+                    )
+        wh = get_work_hours(barber_id)
+        
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика:"
     await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
 
 @router.callback_query(F.data.startswith("set_day_std_"))
@@ -188,7 +216,21 @@ async def set_day_std(call: types.CallbackQuery):
     
     await call.answer("✅ 10:00-20:00")
     wh = get_work_hours(barber_id)
-    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    
+    # Auto-heal missing work hours
+    if len(wh) < 7:
+        existing_dows = [w['dow'] for w in wh]
+        from app.db.conn import get_db
+        with get_db() as cur:
+            for day in range(7):
+                if day not in existing_dows:
+                    cur.execute(
+                        "INSERT INTO work_hours (barber_id, dow, start_time, end_time, slot_step_min) VALUES (%s, %s, '10:00', '20:00', 30)",
+                        (barber_id, day)
+                    )
+        wh = get_work_hours(barber_id)
+        
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика:"
     await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
 
 @router.callback_query(F.data.startswith("set_day_24h_"))
@@ -201,5 +243,19 @@ async def set_day_24h(call: types.CallbackQuery):
     
     await call.answer("✅ 24 Soat (00:00 - 23:59)")
     wh = get_work_hours(barber_id)
-    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    
+    # Auto-heal missing work hours
+    if len(wh) < 7:
+        existing_dows = [w['dow'] for w in wh]
+        from app.db.conn import get_db
+        with get_db() as cur:
+            for day in range(7):
+                if day not in existing_dows:
+                    cur.execute(
+                        "INSERT INTO work_hours (barber_id, dow, start_time, end_time, slot_step_min) VALUES (%s, %s, '10:00', '20:00', 30)",
+                        (barber_id, day)
+                    )
+        wh = get_work_hours(barber_id)
+        
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика:"
     await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
