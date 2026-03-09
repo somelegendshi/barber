@@ -57,25 +57,30 @@ def admin_services_edit_keyboard(services: List[Dict], lang: str = "uz") -> Inli
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def admin_schedule_keyboard(work_hours: List[Dict], lang: str = "uz") -> InlineKeyboardMarkup:
-    # 0=Mon, 6=Sun
-    days_uz = ["Dush", "Sesh", "Chor", "Pay", "Juma", "Shan", "Yak"]
+    days_uz = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
     kb = []
     
-    work_hours.sort(key=lambda x: x['dow'])
+    # Sort just to be safe
+    work_hours = sorted(work_hours, key=lambda x: x['dow'])
     
     for wh in work_hours:
-        day_name = days_uz[wh['dow']]
-        time_str = f"{wh['start_time'].strftime('%H:%M')}-{wh['end_time'].strftime('%H:%M')}"
+        dow = wh['dow']
+        day_name = days_uz[dow][:4] # Shorten name
         
+        # Time format
         if wh['start_time'] == wh['end_time']:
-            time_str = "Yopiq / Закрыто"
-
+            time_str = "Yopiq"
+        else:
+            time_str = f"{wh['start_time'].strftime('%H:%M')}-{wh['end_time'].strftime('%H:%M')}"
+            
+        btn_text = f"{day_name}: {time_str}"
+        
         kb.append([
-            InlineKeyboardButton(text=f"{day_name}: {time_str}", callback_data="ignore"),
-            InlineKeyboardButton(text="✏️", callback_data=f"edit_day_{wh['dow']}")
+            InlineKeyboardButton(text=btn_text, callback_data="ignore"),
+            InlineKeyboardButton(text="Tahrirlash", callback_data=f"edit_day_{dow}")
         ])
         
-    kb.append([InlineKeyboardButton(text="⬅️ Orqaga", callback_data="back_to_admin_settings")])
+    kb.append([InlineKeyboardButton(text="Orqaga", callback_data="back_to_admin_settings")])
     return InlineKeyboardMarkup(inline_keyboard=kb)
 
 def admin_edit_day_keyboard(dow: int, wh_id: int = None) -> InlineKeyboardMarkup:

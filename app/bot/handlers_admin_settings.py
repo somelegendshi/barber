@@ -100,7 +100,8 @@ async def admin_schedule_menu(call: types.CallbackQuery):
         return
 
     wh = get_work_hours(barber_id)
-    await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(wh))
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
 
 @router.callback_query(F.data.startswith("edit_day_"))
 async def edit_day_start(call: types.CallbackQuery):
@@ -173,7 +174,8 @@ async def set_day_off(call: types.CallbackQuery):
     
     await call.answer("✅ Yopildi / Закрыто")
     wh = get_work_hours(barber_id)
-    await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(wh))
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
 
 @router.callback_query(F.data.startswith("set_day_std_"))
 async def set_day_std(call: types.CallbackQuery):
@@ -186,7 +188,8 @@ async def set_day_std(call: types.CallbackQuery):
     
     await call.answer("✅ 10:00-20:00")
     wh = get_work_hours(barber_id)
-    await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(wh))
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
 
 @router.callback_query(F.data.startswith("set_day_24h_"))
 async def set_day_24h(call: types.CallbackQuery):
@@ -198,4 +201,5 @@ async def set_day_24h(call: types.CallbackQuery):
     
     await call.answer("✅ 24 Soat (00:00 - 23:59)")
     wh = get_work_hours(barber_id)
-    await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(wh))
+    msg = f"⏰ Ish vaqtini sozlash / Настройка графика: (Debug: Shop {shop_id}, Barber {barber_id}, WHs {len(wh)})"
+    await call.message.edit_text(msg, reply_markup=admin_schedule_keyboard(wh))
