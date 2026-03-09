@@ -187,3 +187,15 @@ async def set_day_std(call: types.CallbackQuery):
     await call.answer("✅ 10:00-20:00")
     wh = get_work_hours(barber_id)
     await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(wh))
+
+@router.callback_query(F.data.startswith("set_day_24h_"))
+async def set_day_24h(call: types.CallbackQuery):
+    dow = int(call.data.split("_")[3])
+    shop_id = get_current_shop_id(call.from_user.id)
+    barber_id = get_shop_barber_id(shop_id)
+    
+    update_day_schedule(barber_id, dow, "00:00", "23:59")
+    
+    await call.answer("✅ 24 Soat (00:00 - 23:59)")
+    wh = get_work_hours(barber_id)
+    await call.message.edit_text("⏰ Ish vaqtini sozlash / Настройка графика:", reply_markup=admin_schedule_keyboard(wh))

@@ -1,7 +1,6 @@
 # Project TODO & Backlog
 
 ## 🔴 HIGH PRIORITY (Critical)
-- [ ] Implement **Super-Admin Menu** (`/boss`) to create shops and assign managers via menu.
 - [ ] Add **Price** column to `services` table and update all handlers.
 - [ ] Implement **Financial Analytics** (Daily/Weekly revenue stats).
 
@@ -15,6 +14,8 @@
 - [ ] **Feedback:** Ask customers for a rating (1-5 stars) after their appointment.
 
 ## ✅ DONE
+- [x] Implement **Super-Admin Menu** (`/boss`) to create shops and assign managers via menu.
+- [x] Time Picker fixed to support 24/7 schedules and any start/end combinations.
 - [x] Menu-driven Custom Hours (Time Picker).
 - [x] Global Customer History & Cancellation.
 - [x] Identity-First Admin Routing.
