@@ -1,22 +1,43 @@
-from datetime import datetime, date
+from datetime import date, datetime, time
+from functools import lru_cache
+from typing import Optional
+
 import pytz
 
-# Centralized Timezone Configuration
-TZ_TASHKENT = pytz.timezone('Asia/Tashkent')
+DEFAULT_TIMEZONE = "Asia/Tashkent"
+TZ_TASHKENT = pytz.timezone(DEFAULT_TIMEZONE)
 
-def get_now() -> datetime:
-    """Get current timestamp in Tashkent time."""
-    return datetime.now(TZ_TASHKENT)
 
-def get_today() -> date:
-    """Get current date in Tashkent."""
-    return get_now().date()
+@lru_cache(maxsize=64)
+def get_tz(timezone_name: Optional[str] = None):
+    return pytz.timezone(timezone_name or DEFAULT_TIMEZONE)
 
-def to_local(dt: datetime) -> datetime:
-    """Convert any datetime to Tashkent time."""
+
+def get_now(timezone_name: Optional[str] = None) -> datetime:
+    """Get the current timestamp in the provided timezone."""
+    return datetime.now(get_tz(timezone_name))
+
+
+def get_today(timezone_name: Optional[str] = None) -> date:
+    """Get the current date in the provided timezone."""
+    return get_now(timezone_name).date()
+
+
+def localize(dt: datetime, timezone_name: Optional[str] = None) -> datetime:
+    """Attach or convert timezone information."""
+    tz = get_tz(timezone_name)
     if dt.tzinfo is None:
-        return TZ_TASHKENT.localize(dt)
-    return dt.astimezone(TZ_TASHKENT)
+        return tz.localize(dt)
+    return dt.astimezone(tz)
+
+
+def combine_date_time(day: date, clock: time, timezone_name: Optional[str] = None) -> datetime:
+    return localize(datetime.combine(day, clock), timezone_name)
+
+
+def to_local(dt: datetime, timezone_name: Optional[str] = None) -> datetime:
+    """Convert any datetime to the provided timezone."""
+    return localize(dt, timezone_name)
 
 # Localization Maps
 DAYS_UZ = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]

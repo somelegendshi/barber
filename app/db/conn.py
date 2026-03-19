@@ -1,20 +1,32 @@
-import os
 import contextlib
 import logging
-from psycopg2 import pool
+import os
+
+from dotenv import load_dotenv
+from psycopg2 import Error as PsycopgError, pool
 from psycopg2.extras import RealDictCursor
 
-# Setup logger
 logger = logging.getLogger(__name__)
 
-# Load DATABASE_URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise ValueError("Missing DATABASE_URL in environment")
+load_dotenv()
 
-# Initialize connection pool
-# min=1, max=10 connections
-_pool = pool.SimpleConnectionPool(1, 10, DATABASE_URL)
+_pool = None
+
+
+def _get_database_url() -> str:
+    load_dotenv()
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        raise ValueError("Missing DATABASE_URL in environment")
+    return database_url
+
+
+def _get_pool():
+    global _pool
+    if _pool is None:
+        _pool = pool.SimpleConnectionPool(1, 10, _get_database_url())
+    return _pool
+
 
 @contextlib.contextmanager
 def get_db():
@@ -23,18 +35,22 @@ def get_db():
     Handles transaction commit/rollback automatically.
     """
     conn = None
+    current_pool = _get_pool()
     try:
-        conn = _pool.getconn()
-        with conn:  # starts transaction
+        conn = current_pool.getconn()
+        with conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 yield cur
-    except Exception as e:
-        logger.error(f"Database error: {e}")
+    except PsycopgError as exc:
+        logger.error("Database error: %s", exc)
         raise
     finally:
         if conn:
-            _pool.putconn(conn)
+            current_pool.putconn(conn)
+
 
 def close_pool():
+    global _pool
     if _pool:
         _pool.closeall()
+        _pool = None

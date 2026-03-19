@@ -17,7 +17,7 @@
 ## 🚦 Auth & Routing Logic
 1. **Admin Routing:** `get_admin_shop_id(user_id)` checks if user is in `barbers` table.
 2. **Super Admin:** Checks `OWNER_TELEGRAM_IDS` in `.env`.
-3. **Deep Linking:** `t.me/bot?start=shop_X` sets `active_shop_id` in FSM state.
+3. **Deep Linking:** `t.me/bot?start=shopcode_X` resolves the shop's public code and sets `active_shop_id` in FSM state.
 
 ## ⚡ Slotting Engine
 Logic located in `app/domain/slotting.py`. 
