@@ -1,12 +1,13 @@
 import datetime
-from typing import List, Dict
+from typing import Dict, List, Optional
 
 def generate_slots(
     work_hours: List[Dict],
     bookings: List[Dict],
     time_off: List[Dict],
     service_duration_min: int,
-    date: datetime.date
+    date: datetime.date,
+    not_before: Optional[datetime.datetime] = None,
 ) -> List[datetime.datetime]:
     """
     Core slotting engine.
@@ -47,6 +48,10 @@ def generate_slots(
         while current_time + service_duration <= end_time:
             slot_start = current_time
             slot_end = current_time + service_duration
+
+            if not_before is not None and slot_start < not_before:
+                current_time += slot_step
+                continue
             
             # Check overlap with bookings
             conflict = False

@@ -15,8 +15,6 @@ load_dotenv()
 
 from app.scripts.init_db import initialize_production_db
 
-initialize_production_db()
-
 from app.bot import (
     handlers_admin_settings,
     handlers_booking,
@@ -32,18 +30,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _is_production_env() -> bool:
+    return os.getenv("APP_ENV", "").strip().lower() in {"prod", "production"}
+
+
+def build_storage():
+    redis_url = os.getenv("REDIS_URL")
+    if redis_url:
+        logger.info("Using Redis storage")
+        return RedisStorage(redis=Redis.from_url(redis_url))
+
+    if _is_production_env():
+        raise ValueError("Missing REDIS_URL while APP_ENV=production")
+
+    logger.warning("Using Memory storage. Configure REDIS_URL before production sale.")
+    return MemoryStorage()
+
+
 async def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token:
         raise ValueError("Missing TELEGRAM_BOT_TOKEN in environment")
 
-    redis_url = os.getenv("REDIS_URL")
-    if redis_url:
-        storage = RedisStorage(redis=Redis.from_url(redis_url))
-        logger.info("Using Redis storage")
-    else:
-        storage = MemoryStorage()
-        logger.warning("Using Memory storage. Configure REDIS_URL before production sale.")
+    initialize_production_db()
+    storage = build_storage()
 
     bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=storage)

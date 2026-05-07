@@ -36,6 +36,26 @@ pip install -r requirements.txt
 python bot.py
 ```
 
+## Deploy on Railway
+
+This bot runs as a long-running worker, not a web server. Railway can start it with:
+
+```bash
+python bot.py
+```
+
+The repository includes `railway.toml` with that start command.
+
+Required Railway variables:
+
+- `APP_ENV=production`
+- `TELEGRAM_BOT_TOKEN`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `OWNER_TELEGRAM_IDS`
+
+Use one running bot replica per Telegram bot token. Long polling should not be horizontally scaled with the same token.
+
 ## Tests
 
 ```bash

@@ -27,6 +27,8 @@ from app.utils.text import resolve_lang
 
 router = Router()
 
+LANGUAGE_PROMPT = "Tilni tanlang / Выберите язык:"
+
 
 def is_super_admin(user_id: int) -> bool:
     owner_ids = os.getenv("OWNER_TELEGRAM_IDS", "").split(",")
@@ -35,6 +37,49 @@ def is_super_admin(user_id: int) -> bool:
 
 def user_is_admin(user_id: int, state_data: dict) -> bool:
     return bool(get_admin_shop_id(user_id) or state_data.get("is_admin") or is_super_admin(user_id))
+
+
+def _language_saved_text(lang: str) -> str:
+    return "Til saqlandi." if lang == "uz" else "Язык сохранён."
+
+
+async def _show_menu_after_language_choice(call: types.CallbackQuery, state: FSMContext, lang: str):
+    data = await state.get_data()
+    user_id = call.from_user.id
+    admin_shop_id = get_admin_shop_id(user_id)
+
+    if admin_shop_id:
+        shop = get_shop(admin_shop_id)
+        shop_name = shop["name"] if shop else f"Shop {admin_shop_id}"
+        await state.update_data(active_shop_id=admin_shop_id, is_admin=True, lang=lang)
+        await call.message.answer(
+            f"{_language_saved_text(lang)}\n\nAdmin: <b>{shop_name}</b>",
+            reply_markup=admin_menu_keyboard(lang=lang),
+            parse_mode="HTML",
+        )
+        return
+
+    shop_id = data.get("active_shop_id")
+    shop = get_shop(shop_id) if shop_id else None
+    if shop:
+        await state.update_data(active_shop_id=shop_id, is_admin=False, lang=lang)
+        await call.message.answer(
+            f"{_language_saved_text(lang)}\n\n<b>{shop['name']}</b>",
+            reply_markup=main_menu_keyboard(lang=lang),
+            parse_mode="HTML",
+        )
+        return
+
+    await state.update_data(lang=lang, is_admin=False)
+    await call.message.answer(
+        (
+            "Til saqlandi.\n\nBron qilish uchun salon havolasi orqali kiring."
+            if lang == "uz"
+            else
+            "Язык сохранён.\n\nДля записи откройте ссылку салона."
+        ),
+        reply_markup=types.ReplyKeyboardRemove(),
+    )
 
 
 @router.message(CommandStart())
@@ -178,9 +223,25 @@ async def cmd_help(message: types.Message, state: FSMContext):
     await message.answer(text, parse_mode="HTML")
 
 
+@router.message(Command("language"))
+async def cmd_language(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    lang = resolve_lang(
+        data.get("lang"),
+        get_customer_language(message.from_user.id),
+        telegram_lang=message.from_user.language_code,
+    )
+    await state.update_data(lang=lang)
+    await message.answer(LANGUAGE_PROMPT, reply_markup=lang_keyboard())
+
+
 @router.callback_query(F.data.startswith("lang_"))
 async def set_lang(call: types.CallbackQuery, state: FSMContext):
     lang_code = call.data.split("_")[1]
+    if lang_code not in {"uz", "ru"}:
+        await call.answer("Unsupported language.", show_alert=True)
+        return
+
     await state.update_data(lang=lang_code)
     set_customer_language(
         call.from_user.id,
@@ -188,9 +249,12 @@ async def set_lang(call: types.CallbackQuery, state: FSMContext):
         lang_code,
         username=call.from_user.username,
     )
-    menu_text = "Asosiy menyu" if lang_code == "uz" else "Главное меню"
-    await call.message.delete()
-    await call.message.answer(menu_text, reply_markup=main_menu_keyboard(lang=lang_code))
+    try:
+        await call.message.delete()
+    except Exception:
+        pass
+    await _show_menu_after_language_choice(call, state, lang_code)
+    await call.answer()
 
 
 @router.message(F.text == "✂️ Xizmatga yozilish")
@@ -254,7 +318,7 @@ async def handle_settings(message: types.Message, state: FSMContext):
 async def customer_settings_language(call: types.CallbackQuery):
     await safe_edit_text(
         call.message,
-        "Tilni tanlang / Выберите язык:",
+        LANGUAGE_PROMPT,
         callback=call,
         reply_markup=lang_keyboard(),
     )

@@ -23,8 +23,8 @@ def get_msg(key, lang="uz", **kwargs):
             "ru": "📅 <b>Выберите дату:</b>",
         },
         "select_time": {
-            "uz": "⏰ <b>Vaqtni tanlang:</b>",
-            "ru": "⏰ <b>Выберите время:</b>",
+            "uz": "🕰 <b>Vaqtni tanlang:</b>",
+            "ru": "🕰 <b>Выберите время:</b>",
         },
         "request_phone": {
             "uz": "📞 <b>Iltimos, telefon raqamingizni yuboring:</b>\n<i>Quyidagi tugmani bosing</i> 👇",
@@ -55,6 +55,10 @@ def get_msg(key, lang="uz", **kwargs):
         "error_taken": {
             "uz": "🚫 <b>Kechirasiz.</b>\nBu vaqt allaqachon band.\nIltimos, boshqa vaqtni tanlang.",
             "ru": "🚫 <b>Извините.</b>\nЭто время уже занято.\nПожалуйста, выберите другое время.",
+        },
+        "error_unavailable": {
+            "uz": "🚫 <b>Kechirasiz.</b>\nTanlangan vaqt endi mavjud emas.\nIltimos, qaytadan vaqt tanlang.",
+            "ru": "🚫 <b>Извините.</b>\nВыбранное время больше недоступно.\nПожалуйста, выберите время заново.",
         },
     }
     try:

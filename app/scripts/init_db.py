@@ -9,6 +9,8 @@ load_dotenv()
 
 from app.db.conn import get_db
 
+MIGRATION_LOCK_KEY = 9021450
+
 
 def _column_exists(cur, table_name: str, column_name: str) -> bool:
     cur.execute(
@@ -93,6 +95,8 @@ def initialize_production_db():
 
     try:
         with get_db() as cur:
+            cur.execute("SELECT pg_advisory_xact_lock(%s)", (MIGRATION_LOCK_KEY,))
+
             with open(schema_path, "r", encoding="utf-8") as f:
                 cur.execute(f.read())
 
@@ -116,6 +120,16 @@ def initialize_production_db():
             if not _column_exists(cur, "barbers", "notify_telegram_id"):
                 print("Adding barbers.notify_telegram_id ...")
                 cur.execute("ALTER TABLE barbers ADD COLUMN notify_telegram_id BIGINT;")
+
+            cur.execute(
+                """
+                INSERT INTO shop_admins (shop_id, telegram_id, role)
+                SELECT DISTINCT shop_id, telegram_id, 'admin'
+                FROM barbers
+                WHERE telegram_id IS NOT NULL
+                ON CONFLICT (shop_id, telegram_id) DO NOTHING
+                """
+            )
 
             if not _column_exists(cur, "bookings", "reminded"):
                 print("Adding bookings.reminded ...")

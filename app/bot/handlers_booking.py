@@ -31,9 +31,50 @@ from app.db.repository import (
 )
 from app.domain.slotting import generate_slots
 from app.utils.text import normalize_phone
-from app.utils.time import combine_date_time, format_date_localized, get_today, to_local
+from app.utils.time import combine_date_time, format_date_localized, get_now, get_today, to_local
 
 router = Router()
+
+
+def _available_slot_labels(
+    *,
+    shop_id: int,
+    barber_id: int,
+    selected_date,
+    service_duration_min: int,
+    timezone_name: str,
+):
+    work_hours = get_work_hours(barber_id)
+    start_dt = combine_date_time(selected_date, datetime.min.time(), timezone_name)
+    end_dt = combine_date_time(selected_date, datetime.max.time(), timezone_name)
+
+    bookings = get_bookings(shop_id=shop_id, barber_id=barber_id, start_dt=start_dt, end_dt=end_dt)
+    time_off = get_time_off(barber_id, start_dt, end_dt)
+
+    naive_bookings = [
+        {
+            "start_at": to_local(booking["start_at"], timezone_name).replace(tzinfo=None),
+            "end_at": to_local(booking["end_at"], timezone_name).replace(tzinfo=None),
+        }
+        for booking in bookings
+    ]
+    naive_time_off = [
+        {
+            "start_at": to_local(block["start_at"], timezone_name).replace(tzinfo=None),
+            "end_at": to_local(block["end_at"], timezone_name).replace(tzinfo=None),
+        }
+        for block in time_off
+    ]
+
+    slot_datetimes = generate_slots(
+        work_hours,
+        naive_bookings,
+        naive_time_off,
+        service_duration_min,
+        selected_date,
+        not_before=get_now(timezone_name).replace(tzinfo=None),
+    )
+    return [slot.strftime("%H:%M") for slot in slot_datetimes]
 
 
 class BookingFlow(StatesGroup):
@@ -234,36 +275,13 @@ async def select_time(call: types.CallbackQuery, state: FSMContext):
         return
 
     timezone_name = shop["timezone"]
-    work_hours = get_work_hours(barber_id)
-    start_dt = combine_date_time(selected_date, datetime.min.time(), timezone_name)
-    end_dt = combine_date_time(selected_date, datetime.max.time(), timezone_name)
-
-    bookings = get_bookings(shop_id=shop_id, barber_id=barber_id, start_dt=start_dt, end_dt=end_dt)
-    time_off = get_time_off(barber_id, start_dt, end_dt)
-
-    naive_bookings = [
-        {
-            "start_at": to_local(booking["start_at"], timezone_name).replace(tzinfo=None),
-            "end_at": to_local(booking["end_at"], timezone_name).replace(tzinfo=None),
-        }
-        for booking in bookings
-    ]
-    naive_time_off = [
-        {
-            "start_at": to_local(block["start_at"], timezone_name).replace(tzinfo=None),
-            "end_at": to_local(block["end_at"], timezone_name).replace(tzinfo=None),
-        }
-        for block in time_off
-    ]
-
-    slot_datetimes = generate_slots(
-        work_hours,
-        naive_bookings,
-        naive_time_off,
-        int(data.get("duration", 30)),
-        selected_date,
+    slot_labels = _available_slot_labels(
+        shop_id=shop_id,
+        barber_id=barber_id,
+        selected_date=selected_date,
+        service_duration_min=int(data.get("duration", 30)),
+        timezone_name=timezone_name,
     )
-    slot_labels = [slot.strftime("%H:%M") for slot in slot_datetimes]
 
     if not slot_labels:
         await call.answer(
@@ -408,8 +426,10 @@ async def finalize_booking(call: types.CallbackQuery, state: FSMContext, bot: Bo
     data = await state.get_data()
     lang = data.get("lang", "uz")
     shop_id = data.get("active_shop_id")
-    if not shop_id:
-        await call.answer("Session tugagan." if lang == "uz" else "Сессия завершена.", show_alert=True)
+    required_fields = {"service_id", "barber_id", "customer_id", "date", "time"}
+    if not shop_id or not required_fields.issubset(data):
+        await call.answer("Session tugagan." if lang == "uz" else "Session expired.", show_alert=True)
+        await _reset_flow_state(state)
         return
 
     shop = get_shop(shop_id)
@@ -426,10 +446,28 @@ async def finalize_booking(call: types.CallbackQuery, state: FSMContext, bot: Bo
         return
 
     timezone_name = shop["timezone"]
-    booking_date = datetime.strptime(data["date"], "%Y-%m-%d").date()
-    booking_time = datetime.strptime(data["time"], "%H:%M").time()
+    try:
+        booking_date = datetime.strptime(data["date"], "%Y-%m-%d").date()
+        booking_time = datetime.strptime(data["time"], "%H:%M").time()
+    except ValueError:
+        await call.answer("Session tugagan." if lang == "uz" else "Session expired.", show_alert=True)
+        await _reset_flow_state(state)
+        return
     start_at = combine_date_time(booking_date, booking_time, timezone_name)
     duration = int(service["duration_min"])
+
+    available_slots = _available_slot_labels(
+        shop_id=shop_id,
+        barber_id=barber["id"],
+        selected_date=booking_date,
+        service_duration_min=duration,
+        timezone_name=timezone_name,
+    )
+    if data["time"] not in available_slots:
+        await call.message.edit_text(get_msg("error_unavailable", lang=lang), parse_mode="HTML")
+        await _return_to_menu(call.message, lang)
+        await _reset_flow_state(state)
+        return
 
     booking_id = insert_booking(
         {
@@ -456,9 +494,11 @@ async def finalize_booking(call: types.CallbackQuery, state: FSMContext, bot: Bo
             barber_name=barber["display_name"],
             service_name=service["name"],
             customer_name=call.from_user.full_name,
+            customer_phone=data.get("phone"),
             start_at=start_at,
         )
     else:
         await call.message.edit_text(get_msg("error_taken", lang=lang), parse_mode="HTML")
+        await _return_to_menu(call.message, lang)
 
     await _reset_flow_state(state)

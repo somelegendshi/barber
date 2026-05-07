@@ -49,6 +49,23 @@ def get_db():
             current_pool.putconn(conn)
 
 
+@contextlib.contextmanager
+def get_db_connection():
+    conn = None
+    current_pool = _get_pool()
+    try:
+        conn = current_pool.getconn()
+        yield conn
+    except PsycopgError as exc:
+        if conn:
+            conn.rollback()
+        logger.error("Database connection error: %s", exc)
+        raise
+    finally:
+        if conn:
+            current_pool.putconn(conn)
+
+
 def close_pool():
     global _pool
     if _pool:

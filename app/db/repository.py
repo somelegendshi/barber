@@ -114,7 +114,6 @@ def list_barbers_admin(
             SELECT
                 bar.id,
                 bar.display_name,
-                bar.telegram_id,
                 bar.notify_telegram_id,
                 bar.is_active,
                 EXISTS (
@@ -297,11 +296,10 @@ def list_bookings_detailed(
         return cur.fetchall()
 
 
-def list_all_future_bookings(
+def list_confirmed_bookings_from(
     shop_id: int,
-    now_dt: Optional[datetime.datetime] = None,
+    start_dt: datetime.datetime,
 ) -> List[Dict]:
-    now_dt = now_dt or get_now()
     with get_db() as cur:
         cur.execute(
             """
@@ -322,9 +320,16 @@ def list_all_future_bookings(
               AND b.start_at >= %s
             ORDER BY b.start_at ASC
             """,
-            (shop_id, now_dt),
+            (shop_id, start_dt),
         )
         return cur.fetchall()
+
+
+def list_all_future_bookings(
+    shop_id: int,
+    now_dt: Optional[datetime.datetime] = None,
+) -> List[Dict]:
+    return list_confirmed_bookings_from(shop_id, now_dt or get_now())
 
 
 def cancel_booking_db(booking_id: int, shop_id: int) -> bool:
@@ -373,7 +378,8 @@ def get_customer_booking_for_notification(booking_id: int, telegram_user_id: int
                 sh.timezone AS shop_timezone,
                 bar.display_name AS barber_name,
                 bar.notify_telegram_id,
-                s.name AS service_name
+                s.name AS service_name,
+                c.phone AS customer_phone
             FROM bookings b
             JOIN customers c ON b.customer_id = c.id
             JOIN shops sh ON b.shop_id = sh.id
@@ -482,6 +488,33 @@ def insert_booking(booking_data: Dict) -> Optional[int]:
         return None
 
 
+def assign_shop_admin(shop_id: int, telegram_id: int) -> bool:
+    with get_db() as cur:
+        cur.execute(
+            """
+            SELECT shop_id
+            FROM shop_admins
+            WHERE telegram_id = %s
+              AND shop_id <> %s
+            LIMIT 1
+            """,
+            (telegram_id, shop_id),
+        )
+        if cur.fetchone():
+            raise ValueError("This Telegram ID is already assigned to another shop admin.")
+
+        cur.execute(
+            """
+            INSERT INTO shop_admins (shop_id, telegram_id, role)
+            VALUES (%s, %s, 'admin')
+            ON CONFLICT (shop_id, telegram_id) DO NOTHING
+            RETURNING shop_id
+            """,
+            (shop_id, telegram_id),
+        )
+        return True
+
+
 def create_shop_db(name: str) -> int:
     clean_name = name.strip()
     if not clean_name:
@@ -490,6 +523,12 @@ def create_shop_db(name: str) -> int:
     with get_db() as cur:
         cur.execute("INSERT INTO shops (name) VALUES (%s) RETURNING id", (clean_name,))
         return cur.fetchone()["id"]
+
+
+def delete_shop_db(shop_id: int) -> bool:
+    with get_db() as cur:
+        cur.execute("DELETE FROM shops WHERE id = %s RETURNING id", (shop_id,))
+        return cur.fetchone() is not None
 
 
 def create_default_shop_services(shop_id: int):
@@ -507,28 +546,6 @@ def create_default_shop_services(shop_id: int):
             """,
             (shop_id, shop_id),
         )
-
-
-def assign_barber_telegram_id(barber_id: int, telegram_id: int) -> bool:
-    with get_db() as cur:
-        cur.execute(
-            "SELECT id FROM barbers WHERE telegram_id = %s AND id <> %s LIMIT 1",
-            (telegram_id, barber_id),
-        )
-        if cur.fetchone():
-            raise ValueError("This Telegram ID is already assigned to another barber.")
-
-        cur.execute(
-            """
-            UPDATE barbers
-            SET telegram_id = %s,
-                notify_telegram_id = COALESCE(notify_telegram_id, %s)
-            WHERE id = %s
-            RETURNING id
-            """,
-            (telegram_id, telegram_id, barber_id),
-        )
-        return cur.fetchone() is not None
 
 
 def assign_barber_notification_id(barber_id: int, telegram_id: int) -> bool:
@@ -550,7 +567,7 @@ def get_admin_shop_id(telegram_id: int) -> Optional[int]:
         cur.execute(
             """
             SELECT DISTINCT shop_id
-            FROM barbers
+            FROM shop_admins
             WHERE telegram_id = %s
             ORDER BY shop_id
             """,
@@ -571,8 +588,8 @@ def list_shop_admin_ids(shop_id: int) -> List[int]:
         cur.execute(
             """
             SELECT DISTINCT telegram_id
-            FROM barbers
-            WHERE shop_id = %s AND telegram_id IS NOT NULL
+            FROM shop_admins
+            WHERE shop_id = %s
             ORDER BY telegram_id
             """,
             (shop_id,),
@@ -587,9 +604,8 @@ def list_booking_notification_ids(shop_id: int, barber_id: int) -> List[int]:
             SELECT DISTINCT recipient_id
             FROM (
                 SELECT telegram_id AS recipient_id
-                FROM barbers
+                FROM shop_admins
                 WHERE shop_id = %s
-                  AND telegram_id IS NOT NULL
                 UNION
                 SELECT notify_telegram_id AS recipient_id
                 FROM barbers
@@ -715,22 +731,6 @@ def deactivate_barber_db(shop_id: int, barber_id: int) -> Optional[str]:
         barber_row = cur.fetchone()
         if not barber_row:
             return None
-
-        if barber_row["telegram_id"] is not None:
-            cur.execute(
-                """
-                SELECT 1
-                FROM barbers
-                WHERE shop_id = %s
-                  AND id <> %s
-                  AND is_active = TRUE
-                  AND telegram_id IS NOT NULL
-                LIMIT 1
-                """,
-                (shop_id, barber_id),
-            )
-            if cur.fetchone() is None:
-                raise ValueError("Assign another admin before disabling this barber.")
 
         cur.execute(
             """

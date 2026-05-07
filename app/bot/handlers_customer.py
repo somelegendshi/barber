@@ -99,6 +99,7 @@ async def cancel_my_booking(call: types.CallbackQuery, state: FSMContext):
                 barber_name=booking["barber_name"],
                 service_name=booking["service_name"],
                 customer_name=booking.get("customer_name") or call.from_user.full_name,
+                customer_phone=booking.get("customer_phone"),
                 start_at=booking["start_at"],
             )
     else:

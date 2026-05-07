@@ -145,8 +145,6 @@ def admin_barbers_manage_keyboard(barbers: List[Dict], lang: str = "uz") -> Inli
         tags = []
         if not barber.get("is_active", True):
             tags.append("off" if lang == "uz" else "off")
-        if barber.get("telegram_id"):
-            tags.append("admin")
         if barber.get("notify_telegram_id"):
             tags.append("notify")
         if barber.get("has_future_bookings"):
@@ -375,6 +373,7 @@ def admin_quick_block_keyboard(barber_id: int, lang: str = "uz") -> InlineKeyboa
         inline_keyboard=[
             [InlineKeyboardButton(text="🍽️ Tushlik (13:00-14:00)" if lang == "uz" else "🍽️ Обед (13:00-14:00)", callback_data=f"block_lunch_{barber_id}")],
             [InlineKeyboardButton(text="⏳ 1 soatga yopish" if lang == "uz" else "⏳ Закрыть на 1 час", callback_data=f"block_1h_{barber_id}")],
+            [InlineKeyboardButton(text="Boshqa sana/vaqt" if lang == "uz" else "Другая дата/время", callback_data=f"block_custom_{barber_id}")],
             [InlineKeyboardButton(text=_close_text(lang), callback_data="close_admin_settings")],
         ]
     )

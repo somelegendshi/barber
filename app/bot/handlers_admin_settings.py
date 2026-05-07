@@ -144,19 +144,15 @@ async def barber_info(call: types.CallbackQuery, state: FSMContext):
         return
 
     if lang == "uz":
-        admin_status = "bor" if barber.get("telegram_id") else "yo'q"
         notify_status = barber.get("notify_telegram_id") or "biriktirilmagan"
         text = (
             f"Usta: {barber['display_name']}\n"
-            f"Admin login ID: {admin_status}\n"
             f"Bildirishnoma ID: {notify_status}"
         )
     else:
-        admin_status = "есть" if barber.get("telegram_id") else "нет"
         notify_status = barber.get("notify_telegram_id") or "не привязан"
         text = (
             f"Мастер: {barber['display_name']}\n"
-            f"Admin login ID: {admin_status}\n"
             f"ID для уведомлений: {notify_status}"
         )
     await call.answer(text, show_alert=True)
@@ -279,8 +275,6 @@ async def disable_barber(call: types.CallbackQuery, state: FSMContext):
         error_text = str(exc)
         if "At least one active barber" in error_text:
             text = "Kamida bitta faol usta qolishi kerak." if lang == "uz" else "В салоне должен остаться хотя бы один активный мастер."
-        elif "Assign another admin" in error_text:
-            text = "Bu admin usta. Avval boshqa admin tayinlang." if lang == "uz" else "Это админ-мастер. Сначала назначьте другого админа."
         else:
             text = "Bu ustada hali kelgusi buyurtmalar bor." if lang == "uz" else "У этого мастера ещё есть будущие записи."
         await call.answer(text, show_alert=True)

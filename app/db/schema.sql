@@ -8,11 +8,19 @@ CREATE TABLE IF NOT EXISTS shops (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS shop_admins (
+  shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  telegram_id BIGINT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'admin',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (shop_id, telegram_id)
+);
+
 CREATE TABLE IF NOT EXISTS barbers (
   id BIGSERIAL PRIMARY KEY,
   shop_id BIGINT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
   display_name TEXT NOT NULL,
-  telegram_id BIGINT, -- Admin login ID
+  telegram_id BIGINT, -- Legacy admin login ID (migrated to shop_admins)
   notify_telegram_id BIGINT, -- Barber notification ID
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -114,6 +122,9 @@ BEGIN
     ';
   END IF;
 END$$;
+
+CREATE INDEX IF NOT EXISTS idx_shop_admins_telegram_id
+  ON shop_admins (telegram_id);
 
 CREATE INDEX IF NOT EXISTS idx_time_off_lookup
   ON time_off (barber_id, start_at, end_at);
