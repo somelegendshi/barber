@@ -39,8 +39,32 @@ def user_is_admin(user_id: int, state_data: dict) -> bool:
     return bool(get_admin_shop_id(user_id) or state_data.get("is_admin") or is_super_admin(user_id))
 
 
+def _has_explicit_customer_language(state_data: dict, saved_lang: str | None) -> bool:
+    return bool(saved_lang or state_data.get("lang_confirmed"))
+
+
 def _language_saved_text(lang: str) -> str:
     return "Til saqlandi." if lang == "uz" else "Язык сохранён."
+
+
+async def _ask_customer_language(message: types.Message, state: FSMContext, shop: dict):
+    await state.update_data(active_shop_id=shop["id"], is_admin=False)
+    welcome_text = (
+        f"{LANGUAGE_PROMPT}\n\n"
+        f"{WELCOME_MSG.format(name=message.from_user.full_name)}\n\n"
+        f"<b>{shop['name']}</b>"
+    )
+    image_url = "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1000&auto=format&fit=crop"
+
+    try:
+        await message.answer_photo(
+            photo=image_url,
+            caption=welcome_text,
+            reply_markup=lang_keyboard(),
+            parse_mode="HTML",
+        )
+    except Exception:
+        await message.answer(welcome_text, reply_markup=lang_keyboard(), parse_mode="HTML")
 
 
 async def _show_menu_after_language_choice(call: types.CallbackQuery, state: FSMContext, lang: str):
@@ -51,7 +75,7 @@ async def _show_menu_after_language_choice(call: types.CallbackQuery, state: FSM
     if admin_shop_id:
         shop = get_shop(admin_shop_id)
         shop_name = shop["name"] if shop else f"Shop {admin_shop_id}"
-        await state.update_data(active_shop_id=admin_shop_id, is_admin=True, lang=lang)
+        await state.update_data(active_shop_id=admin_shop_id, is_admin=True, lang=lang, lang_confirmed=True)
         await call.message.answer(
             f"{_language_saved_text(lang)}\n\nAdmin: <b>{shop_name}</b>",
             reply_markup=admin_menu_keyboard(lang=lang),
@@ -62,7 +86,7 @@ async def _show_menu_after_language_choice(call: types.CallbackQuery, state: FSM
     shop_id = data.get("active_shop_id")
     shop = get_shop(shop_id) if shop_id else None
     if shop:
-        await state.update_data(active_shop_id=shop_id, is_admin=False, lang=lang)
+        await state.update_data(active_shop_id=shop_id, is_admin=False, lang=lang, lang_confirmed=True)
         await call.message.answer(
             f"{_language_saved_text(lang)}\n\n<b>{shop['name']}</b>",
             reply_markup=main_menu_keyboard(lang=lang),
@@ -70,7 +94,7 @@ async def _show_menu_after_language_choice(call: types.CallbackQuery, state: FSM
         )
         return
 
-    await state.update_data(lang=lang, is_admin=False)
+    await state.update_data(lang=lang, lang_confirmed=True, is_admin=False)
     await call.message.answer(
         (
             "Til saqlandi.\n\nBron qilish uchun salon havolasi orqali kiring."
@@ -89,6 +113,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     data = await state.get_data()
     saved_lang = get_customer_language(user_id)
     lang = resolve_lang(data.get("lang"), saved_lang, telegram_lang=message.from_user.language_code)
+    has_shop_start_arg = len(args) > 1 and args[1].startswith(("shopcode_", "shop_"))
 
     shop_managed_by_user = get_admin_shop_id(user_id)
     if shop_managed_by_user:
@@ -174,7 +199,6 @@ async def cmd_start(message: types.Message, state: FSMContext):
         )
         return
 
-    await state.update_data(active_shop_id=shop_id, is_admin=False, lang=lang)
     ensure_customer(
         user_id,
         message.from_user.full_name,
@@ -182,32 +206,22 @@ async def cmd_start(message: types.Message, state: FSMContext):
         language_code=saved_lang,
     )
 
-    if saved_lang:
+    if saved_lang and not has_shop_start_arg:
+        await state.update_data(active_shop_id=shop_id, is_admin=False, lang=saved_lang, lang_confirmed=True)
         text = (
             f"👋 Xush kelibsiz, <b>{message.from_user.full_name}</b>!\n\n"
             f"<b>{shop['name']}</b>\n\n"
             "Xizmatni tanlash uchun menyudan foydalaning."
-            if lang == "uz"
+            if saved_lang == "uz"
             else
             f"👋 Добро пожаловать, <b>{message.from_user.full_name}</b>!\n\n"
             f"<b>{shop['name']}</b>\n\n"
             "Выберите нужный раздел в меню."
         )
-        await message.answer(text, reply_markup=main_menu_keyboard(lang=lang), parse_mode="HTML")
+        await message.answer(text, reply_markup=main_menu_keyboard(lang=saved_lang), parse_mode="HTML")
         return
 
-    welcome_text = WELCOME_MSG.format(name=message.from_user.full_name) + f"\n\n<b>{shop['name']}</b>"
-    image_url = "https://images.unsplash.com/photo-1585747860715-2ba37e788b70?q=80&w=1000&auto=format&fit=crop"
-
-    try:
-        await message.answer_photo(
-            photo=image_url,
-            caption=welcome_text,
-            reply_markup=lang_keyboard(),
-            parse_mode="HTML",
-        )
-    except Exception:
-        await message.answer(welcome_text, reply_markup=lang_keyboard(), parse_mode="HTML")
+    await _ask_customer_language(message, state, shop)
 
 
 @router.message(Command("help"))
@@ -242,7 +256,7 @@ async def set_lang(call: types.CallbackQuery, state: FSMContext):
         await call.answer("Unsupported language.", show_alert=True)
         return
 
-    await state.update_data(lang=lang_code)
+    await state.update_data(lang=lang_code, lang_confirmed=True)
     set_customer_language(
         call.from_user.id,
         call.from_user.full_name,
@@ -263,9 +277,14 @@ async def set_lang(call: types.CallbackQuery, state: FSMContext):
 @router.message(F.text == "Записаться на услугу")
 async def handle_new_booking(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    saved_lang = get_customer_language(message.from_user.id)
+    if not _has_explicit_customer_language(data, saved_lang):
+        await message.answer(LANGUAGE_PROMPT, reply_markup=lang_keyboard())
+        return
+
     lang = resolve_lang(
         data.get("lang"),
-        get_customer_language(message.from_user.id),
+        saved_lang,
         telegram_lang=message.from_user.language_code,
     )
     await state.update_data(lang=lang)
@@ -304,9 +323,14 @@ async def handle_my_bookings(message: types.Message, state: FSMContext):
 @router.message(F.text == "Настройки")
 async def handle_settings(message: types.Message, state: FSMContext):
     data = await state.get_data()
+    saved_lang = get_customer_language(message.from_user.id)
+    if not _has_explicit_customer_language(data, saved_lang):
+        await message.answer(LANGUAGE_PROMPT, reply_markup=lang_keyboard())
+        return
+
     lang = resolve_lang(
         data.get("lang"),
-        get_customer_language(message.from_user.id),
+        saved_lang,
         telegram_lang=message.from_user.language_code,
     )
     await state.update_data(lang=lang)

@@ -12,12 +12,23 @@ from app.bot import handlers_start
 
 
 class FakeMessage:
-    def __init__(self):
+    def __init__(self, text=None, user_id=123, telegram_lang="uz"):
+        self.text = text
+        self.from_user = SimpleNamespace(
+            id=user_id,
+            full_name="Test User",
+            username="test_user",
+            language_code=telegram_lang,
+        )
         self.answers = []
+        self.photos = []
         self.deleted = False
 
     async def answer(self, text, **kwargs):
         self.answers.append((text, kwargs))
+
+    async def answer_photo(self, photo, **kwargs):
+        self.photos.append((photo, kwargs))
 
     async def delete(self):
         self.deleted = True
@@ -57,6 +68,52 @@ class LanguageFlowTestCase(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message.answers[0][0], handlers_start.LANGUAGE_PROMPT)
         self.assertIn("reply_markup", message.answers[0][1])
 
+    async def test_start_with_shop_link_prompts_language_before_using_telegram_locale(self):
+        message = FakeMessage("/start shopcode_77", telegram_lang="ru")
+        state = FakeState()
+
+        with (
+            patch.object(handlers_start, "get_customer_language", return_value=None),
+            patch.object(handlers_start, "get_admin_shop_id", return_value=None),
+            patch.object(handlers_start, "is_super_admin", return_value=False),
+            patch.object(handlers_start, "resolve_shop_reference", return_value={"id": 77, "name": "BarberTop"}),
+            patch.object(handlers_start, "ensure_customer") as ensure_customer,
+        ):
+            await handlers_start.cmd_start(message, state)
+
+        ensure_customer.assert_called_once()
+        self.assertEqual(state.data["active_shop_id"], 77)
+        self.assertFalse(state.data["is_admin"])
+        self.assertNotIn("lang", state.data)
+        self.assertIn("reply_markup", message.photos[0][1])
+        self.assertIn(handlers_start.LANGUAGE_PROMPT, message.photos[0][1]["caption"])
+
+    async def test_start_with_shop_link_reasks_language_even_if_language_was_saved(self):
+        message = FakeMessage("/start shopcode_77", telegram_lang="ru")
+        state = FakeState()
+
+        with (
+            patch.object(handlers_start, "get_customer_language", return_value="ru"),
+            patch.object(handlers_start, "get_admin_shop_id", return_value=None),
+            patch.object(handlers_start, "is_super_admin", return_value=False),
+            patch.object(handlers_start, "resolve_shop_reference", return_value={"id": 77, "name": "BarberTop"}),
+            patch.object(handlers_start, "ensure_customer"),
+        ):
+            await handlers_start.cmd_start(message, state)
+
+        self.assertIn("reply_markup", message.photos[0][1])
+        self.assertIn(handlers_start.LANGUAGE_PROMPT, message.photos[0][1]["caption"])
+
+    async def test_booking_button_requires_explicit_language_choice(self):
+        message = FakeMessage("Xizmatga yozilish", telegram_lang="ru")
+        state = FakeState({"active_shop_id": 77})
+
+        with patch.object(handlers_start, "get_customer_language", return_value=None):
+            await handlers_start.handle_new_booking(message, state)
+
+        self.assertEqual(message.answers[0][0], handlers_start.LANGUAGE_PROMPT)
+        self.assertIn("reply_markup", message.answers[0][1])
+
     async def test_language_choice_persists_and_keeps_customer_shop_context(self):
         call = FakeCall("lang_ru")
         state = FakeState({"active_shop_id": 77, "is_admin": False})
@@ -71,6 +128,7 @@ class LanguageFlowTestCase(unittest.IsolatedAsyncioTestCase):
         set_language.assert_called_once_with(123, "Test User", "ru", username="test_user")
         self.assertTrue(call.message.deleted)
         self.assertEqual(state.data["lang"], "ru")
+        self.assertTrue(state.data["lang_confirmed"])
         self.assertFalse(state.data["is_admin"])
         self.assertIn("BarberTop", call.message.answers[0][0])
 
